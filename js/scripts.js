@@ -56,166 +56,194 @@ var camisetas = {
 // parâmetros da pesquisa
 
 var parametros_pesquisa = {
-    "quantidade": 1,
+    "quantidade": 1000,
     "cor": "colorida",
     "gola": "gola_v",
     "qualidade": "q150",
-    "estampa": "com_estampa",
-    "embalagem": "bulk"
+    "estampa": "sem_estampa",
+    "embalagem": "unitaria"
 }
 
-function recarregarParametros(){
-    $("#quantidade").val(parametros_pesquisa.quantidade);
-    if(parametros_pesquisa.cor=="branca"){
-        $("#branca").addClass("selected");
-        $("#colorida").removeClass("selected");
-    }else{
-        $("#colorida").addClass("selected");
-        $("#branca").removeClass("selected");
-    }
 
-    if(parametros_pesquisa.gola=="gola_v"){
-        $("#gola_v").addClass("selected");
-        $("#gola_normal").removeClass("selected");
-    }else{
-        $("#gola_normal").addClass("selected");
-        $("#gola_v").removeClass("selected");
-    }
+// Regras adicionais para o orçamento:
 
-    if(parametros_pesquisa.qualidade=="q150"){
-        $("#q150").addClass("selected");
-        $("#q190").removeClass("selected");
-    }else{
-        $("#q190").addClass("selected");
-        $("#q150").removeClass("selected");
-    }
+// 1. Verificar se há em localStorage os parâmetros do último orçamento e se houver, carregar a página com eles.
 
-    $("#estampa").val(parametros_pesquisa.estampa);
-    $("#embalagem").val(parametros_pesquisa.embalagem);
-}
+// 2. A camisa de qualidade alta (190g/m2) deve acrescer o preço unitário em 12%.
 
-function carregarDetalhes(){
-    var quantidade = parametros_pesquisa.quantidade;
-    var cor = parametros_pesquisa.cor;
-    var gola = parametros_pesquisa.gola;
-    var qualidade = parametros_pesquisa.qualidade;
-    var estampa = parametros_pesquisa.estampa;
-    var embalagem = parametros_pesquisa.embalagem;
-    var adicionalPorEmbalagem = 0;
-    var desconto = 0;
-    
-    $("#result_quantidade").text(quantidade);
-    $("#result_cor").text(cor);
-    $("#result_gola").text(gola=="gola_v" ? "V" : "Normal");
-    $("#result_qualidade").text(qualidade=="q150" ? "Normal (150g / m2)" : "Alta (190g / m2)");
-    $("#result_estampa").text(estampa=="com_estampa" ? "Com estampa" : "Sem estampa");
-    $("#result_embalagem").text(embalagem=="bulk" ? "Bulk - Sem Plástico" : "Unitária - Plástico");
-    
-    var fotoProduto = "img/" + camisetas[cor][gola][estampa].foto;
-    $("#foto-produto").attr("src", fotoProduto);
-    
-    var precoUnitario = camisetas[cor][gola][estampa].preco_unit;
-    if(qualidade == "q190"){
-        precoUnitario += (precoUnitario * 0.12);
-    }
-    
-    if(embalagem == "unitaria"){
-        adicionalPorEmbalagem = quantidade * 0.15;
-    }
+// 3. A embalagem unitária tem um custo de 0.15 por unidade
 
-    var preco = quantidade * precoUnitario;
+// 4. Após cálculo do preço, há que se aplicar um desconto por quantidade, sendo: 
+    // faixa 1: acima de 1.000 - Desconto de 15%
+    // faixa 2: acima de 500 - Desconto de 10%
+    // faixa 3: acima de 100 - Desconto de 5%
 
-    if(quantidade >= 1000){
-        desconto = 0.15;
-    }else if(quantidade >= 500){
-        desconto = 0.10;
-    }else if(quantidade >= 100){
-        desconto = 0.05;
-    }
 
-    preco -= (preco * desconto);
-    preco += adicionalPorEmbalagem;
 
-    $("#valor-total").text(preco.toFixed(2).replace(".",","));
-    localStorage.setItem(("ultimoOrcamento"), JSON.stringify(parametros_pesquisa));
-}
+// Resolução do desafio:
 
 $(function(){
-    
-    //Buscar parâmetrosPesquisa em localStorage
-    if(localStorage.getItem("ultimoOrcamento")){
-        parametros_pesquisa = JSON.parse(localStorage.getItem("ultimoOrcamento"));
-    }
-    
-    recarregarParametros();
-    carregarDetalhes();
 
-    //Quantidade
-    $("#quantidade").change(function(){
-        var quantidade = $("#quantidade").val();
-        if(quantidade==""){
-            quantidade = 1;
-            $("#quantidade").val(quantidade);
+    function atualizar_orcamento(parametros) {
+
+        $('.refresh-loader').show();
+
+        var quantidade = parametros.quantidade;
+        var preco_unit = camisetas[parametros.cor][parametros.gola][parametros.estampa].preco_unit;
+        var foto = "img/" + camisetas[parametros.cor][parametros.gola][parametros.estampa].foto;
+
+        var valor_total = quantidade * preco_unit;
+
+        if (parametros.qualidade == "q190") {
+            valor_total *= 1.12;
         }
-        parametros_pesquisa.quantidade = quantidade;
-        carregarDetalhes();
+
+        if (parametros.embalagem == "unitaria") {
+            valor_total += (quantidade * 0.15);
+        }
+
+        if (quantidade >= 1000) {
+            valor_total *= 0.85;
+        } else if (quantidade >= 500) {
+            valor_total *= 0.90;
+        }  else if (quantidade >= 100) {
+            valor_total *= 0.95;
+        }
+
+        window.setTimeout(function(){
+
+            var id_gola = "#" + parametros.gola;
+            $('#result_gola').html( $(id_gola).html() );
+
+            var id_estampa = "option[value='" + parametros.estampa +  "']";
+            $('#result_estampa').html( $(id_estampa).html() );
+
+            var id_qualidade = "#" + parametros.qualidade;
+            $('#result_qualidade').html( $(id_qualidade).html() );
+
+            var id_cor = "#" + parametros.cor;
+            $('#result_cor').html( $(id_cor).html() );
+
+            var id_embalagem = "option[value='" + parametros.embalagem +  "']";
+            $('#result_embalagem').html( $(id_embalagem).html() );
+
+            $('#result_quantidade').html( parametros.quantidade );
+
+            $('#valor-total').html( valor_total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 } ) );
+            $('#foto-produto').attr("src",foto);
+
+            $('.refresh-loader').hide();
+
+        },1000)
+        
+
+    }
+
+    function atualizar_campos (parametros) {
+
+        // cor
+        $("#cor").children().removeClass("selected");
+        var id_cor = "#" + parametros.cor;
+        $(id_cor).addClass("selected");
+
+        // gola
+        $("#gola").children().removeClass("selected");
+        var id_gola = "#" + parametros.gola;
+        $(id_gola).addClass("selected");
+
+        // qualidade
+        $("#qualidade").children().removeClass("selected");
+        var id_qualidade = "#" + parametros.qualidade;
+        $(id_qualidade).addClass("selected");
+
+        // estampa
+        $("#estampa").val(parametros.estampa);
+
+        // estampa
+        $("#embalagem").val(parametros.embalagem);
+
+        // quantidade
+        $("#quantidade").val(parametros.quantidade);
+
+    }
+
+    function atualizar_localStorage(parametros) {
+        window.localStorage.setItem("quantidade", parametros.quantidade);
+        window.localStorage.setItem("cor", parametros.cor);
+        window.localStorage.setItem("gola", parametros.gola);
+        window.localStorage.setItem("qualidade", parametros.qualidade);
+        window.localStorage.setItem("estampa", parametros.estampa);
+        window.localStorage.setItem("embalagem", parametros.embalagem);
+
+
+    }
+
+
+
+
+    $(".option-filter div").click(function(){
+
+        $(this).parent().children("div").removeClass("selected");
+        $(this).addClass("selected");
+
+        var categoria = $(this).parent().attr('id');
+        parametros_pesquisa[categoria] = $(this).attr('id');
+        atualizar_localStorage(parametros_pesquisa)
+        atualizar_orcamento(parametros_pesquisa);
+
     });
 
-    //Filtro Cor
-    $("#branca").click(function(){
-        $("#branca").addClass("selected");
-        $("#colorida").removeClass("selected");
-        parametros_pesquisa.cor = "branca";
-        carregarDetalhes();
-    });
-    $("#colorida").click(function(){
-        $("#branca").removeClass("selected");
-        $("#colorida").addClass("selected");
-        parametros_pesquisa.cor = "colorida";
-        carregarDetalhes();
+    $("select").change(function(){
+
+        var parametro_select = $(this).attr('id');
+        parametros_pesquisa[parametro_select] = $(this).val();
+        atualizar_localStorage(parametros_pesquisa)
+        atualizar_orcamento(parametros_pesquisa);
+
     });
 
-    //Filtro Gola
-    $("#gola_v").click(function(){
-        $("#gola_v").addClass("selected");
-        $("#gola_normal").removeClass("selected");
-        parametros_pesquisa.gola = "gola_v";
-        carregarDetalhes();
-    });
-    $("#gola_normal").click(function(){
-        $("#gola_normal").addClass("selected");
-        $("#gola_v").removeClass("selected");
-        parametros_pesquisa.gola = "gola_normal";
-        carregarDetalhes();
+    $('#quantidade').change(function(){
+
+        var parametro_input = $(this).attr('id');
+        parametros_pesquisa[parametro_input] = $(this).val();
+        atualizar_localStorage(parametros_pesquisa)
+        atualizar_orcamento(parametros_pesquisa);
+
     });
 
-    //Filtro Qualidade tecido
-    $("#q150").click(function(){
-        $("#q150").addClass("selected");
-        $("#q190").removeClass("selected");
-        parametros_pesquisa.qualidade = "q150";
-        carregarDetalhes();
-    });
-    $("#q190").click(function(){
-        $("#q190").addClass("selected");
-        $("#q150").removeClass("selected");
-        parametros_pesquisa.qualidade = "q190";
-        carregarDetalhes();
-    });
+
+
+
+
+    // Ao carregar a página
+
+    if (window.localStorage["quantidade"]) {
+        parametros_pesquisa.quantidade = parseInt(window.localStorage["quantidade"]);
+    }
+
+    if (window.localStorage["cor"]) {
+        parametros_pesquisa.cor = window.localStorage["cor"];
+    }
+
+    if (window.localStorage["gola"]) {
+        parametros_pesquisa.gola = window.localStorage["gola"];
+    }
+
+    if (window.localStorage["qualidade"]) {
+        parametros_pesquisa.qualidade = window.localStorage["qualidade"];
+    }
+
+    if (window.localStorage["estampa"]) {
+        parametros_pesquisa.estampa = window.localStorage["estampa"];
+    }
+
+    if (window.localStorage["embalagem"]) {
+        parametros_pesquisa.embalagem = window.localStorage["embalagem"];
+    }
+
     
-    //Filtro Estampa
-    $("#estampa").change(function(){
-        parametros_pesquisa.estampa = $("#estampa").val();
-        carregarDetalhes();
-    });
-
-    //Filtro Embalagem
-    $("#embalagem").change(function(){
-        parametros_pesquisa.embalagem = $("#embalagem").val();
-        carregarDetalhes();
-    });
-    
-    // Se quiser uma sugestão dos passos a seguir para a resolução, veja mais abaixo.
+    atualizar_campos (parametros_pesquisa);
+    atualizar_orcamento(parametros_pesquisa);
     
 });
 
